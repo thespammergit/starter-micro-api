@@ -22,15 +22,10 @@ const multiplayerSchema = new mongoose.Schema({
   eventtype: String,
   league: String,
   position: Number,
-  totalplayers: Number,
   car: String,
   trackname: String,
   racetime: String,
-  averagespeed: Array,
   reputationpoints: String,
-  topracertime: String,
-  isghost: Boolean,
-  isslipstream: Boolean,
 });
 
 const dailyeventSchema = new mongoose.Schema({
@@ -44,12 +39,28 @@ const dailyeventSchema = new mongoose.Schema({
   reputationpoints: String,
 });
 
-const loginSchema = new mongoose.Schema({
+const showroomSchema = new mongoose.Schema({
   time: Date,
   user: String,
-  SerialNumber: String,
-  botcreationdate: String,
+  eventtype: String,
+  position: String,
+  car: String,
+  trackname: String,
+  racetime: String,
+  reputationpoints: String,
 });
+
+const seasonalSchema = new mongoose.Schema({
+  time: Date,
+  user: String,
+  eventtype: String,
+  position: String,
+  car: String,
+  trackname: String,
+  racetime: String,
+  reputationpoints: String,
+});
+
 const userdetailsSchema = new mongoose.Schema({
   user: String,
   SerialNumber: String,
@@ -61,17 +72,6 @@ const userdetailsSchema = new mongoose.Schema({
   graphics_cards : String
 });
 
-const premimumserSchema = new mongoose.Schema({
-  user: String,
-  SerialNumber: String,
-  isdevtester: Boolean,
-});
-
-const userinforSchema = new mongoose.Schema({
-  user: String,
-  SerialNumber: String,
-  lastlogin : Date
-});
 
 
 const userloginSchema = new mongoose.Schema({
@@ -98,20 +98,22 @@ const configSchema = new mongoose.Schema({
   multiplayertwosinglecarname : String,
   carhuntname : String,
   carhunttrack : String,
+  carhuntclass : String,
+  carhuntv2track : Boolean,
   mp1name : String,
   mp2name : String,
   latestbuild : String,
-  carhuntclass : String
+  showannouncement : Boolean,
+  announcement : String,
 })
 
 
 
 const Multiplayer = mongoose.model("Multiplayer", multiplayerSchema);
 const Dailyevent = mongoose.model("Dailyevent", dailyeventSchema);
-const Logininfo = mongoose.model("Logininfo", loginSchema);
-const Premimumuser = mongoose.model("Premimumuser", premimumserSchema);
+const Showroom = mongoose.model("Showroom" ,showroomSchema)
+const Seasonal = mongoose.model("Seasonal" , seasonalSchema)
 const Userdetails = mongoose.model("Userdetails", userdetailsSchema);
-const Userinfo = mongoose.model("Userinfo", userinforSchema);
 const Userlogin = mongoose.model("Userlogin", userloginSchema);
 const configurations = mongoose.model("Configurations" , configSchema);
 
@@ -167,6 +169,34 @@ app.post("/api/dailyevent", async (req, res) => {
   }
 });
 
+app.post("/api/showroom", async (req, res) => {
+  // Check if the request body has a 'time' key
+  console.log(req.body);
+  const user = new Showroom(req.body);
+  try {
+    await user.save();
+    console.log("Result saved successfully");
+    res.send("User data received");
+  } catch (err) {
+    console.log(err);
+    res.status(500).send("Error saving user");
+  }
+});
+
+app.post("/api/seasonalevent", async (req, res) => {
+  // Check if the request body has a 'time' key
+  console.log(req.body);
+  const user = new Seasonal(req.body);
+  try {
+    await user.save();
+    console.log("Result saved successfully");
+    res.send("User data received");
+  } catch (err) {
+    console.log(err);
+    res.status(500).send("Error saving user");
+  }
+});
+
 //multiplayeroneslipstream
 
 app.post("/api/login", async (req, res) => {
@@ -176,44 +206,24 @@ app.post("/api/login", async (req, res) => {
   const lastLoginTime = req.body.time;
   try {
     let getallconfiginfo =  await configurations.findOne({ configdetails : "mainconfiginformations"})
-    let foundUser = await Userlogin.findOne({ user: username, passes: password, SerialNumber: req.body.SerialNumber });
-    if (foundUser) {
-      foundUser.lastlogin = lastLoginTime;
-      foundUser.creationdate = req.body.botcreationdate
-      let savedUser = await foundUser.save();
-      const sendinfo = {
-        username: req.body.user,
-        aawasta: savedUser.ispreminum,
-        halkhabar: savedUser.isdevtester,
-        verified: true,
-        newuser: false,
-        mp1name : getallconfiginfo.mp1name,
-        mp2name : getallconfiginfo.mp2name,
-        multiplayeroneghost : getallconfiginfo.multiplayeroneghost,
-        multiplayeroneslipstream : getallconfiginfo.multiplayeroneslipstream,
-        multiplayertwotype : getallconfiginfo.multiplayertwotype,
-        multiplayertwoghost : getallconfiginfo.multiplayertwoghost,
-        multiplayertwoslipstream : getallconfiginfo.multiplayertwoslipstream,
-        multiplayertwoallcars : getallconfiginfo.multiplayertwoallcar,
-        multiplayertwosinglecarname : getallconfiginfo.multiplayertwosinglecarname,
-        carhuntname : getallconfiginfo.carhuntname,
-        carhunttrack :  getallconfiginfo.carhunttrack,
-        latestbuild : getallconfiginfo.latestbuild,
-        carhuntclass : getallconfiginfo.carhuntclass
-      };
-      return res.status(200).json(sendinfo);
-    } else {
-      let foundUserWithoutSerial = await Userlogin.findOne({ user: username, passes: password });
-      if (foundUserWithoutSerial) {
-        foundUserWithoutSerial.lastlogin = lastLoginTime;
-        foundUserWithoutSerial.creationdate = req.body.botcreationdate
-        let savedUser = await foundUserWithoutSerial.save();
+    foundUser = await Userlogin.findOne({ user: username, passes: password });
+      if (foundUser) {
+        foundUser.lastlogin = lastLoginTime;
+        let serialExists = await Userlogin.findOne({SerialNumber: req.body.SerialNumber})
+        if (serialExists){
+          verifieduser = true
+        }
+        else {
+          verifieduser = false
+          foundUser.SerialNumber = req.body.SerialNumber 
+        }
+        foundUser.creationdate = req.body.botcreationdate
+        let savedUser = await foundUser.save();
         const sendinfo = {
           username: req.body.user,
           aawasta: savedUser.ispreminum,
           halkhabar: savedUser.isdevtester,
-          verified: false,
-          newuser: false,
+          verified: verifieduser,
           mp1name : getallconfiginfo.mp1name,
           mp2name : getallconfiginfo.mp2name,
           multiplayeroneghost : getallconfiginfo.multiplayeroneghost,
@@ -226,7 +236,9 @@ app.post("/api/login", async (req, res) => {
           carhuntname : getallconfiginfo.carhuntname,
           carhunttrack :  getallconfiginfo.carhunttrack,
           latestbuild : getallconfiginfo.latestbuild,
-          carhuntclass : getallconfiginfo.carhuntclass
+          carhuntv2track : getallconfiginfo.carhuntv2track,
+          carhuntclass : getallconfiginfo.carhuntclass,
+          announcement : getallconfiginfo.announcement
         };
         return res.status(200).json(sendinfo);
       } else {
@@ -257,7 +269,6 @@ app.post("/api/login", async (req, res) => {
             aawasta: false,
             halkhabar: false,
             verified: false,
-            newuser: true,
             mp1name : getallconfiginfo.mp1name,
             mp2name : getallconfiginfo.mp2name,
             multiplayeroneghost : getallconfiginfo.multiplayeroneghost,
@@ -270,13 +281,15 @@ app.post("/api/login", async (req, res) => {
             carhuntname : getallconfiginfo.carhuntname,
             carhunttrack :  getallconfiginfo.carhunttrack,
             latestbuild : getallconfiginfo.latestbuild,
-            carhuntclass : getallconfiginfo.carhuntclass
+            carhuntclass : getallconfiginfo.carhuntclass,
+            carhuntv2track : getallconfiginfo.carhuntv2track,
+            announcement : getallconfiginfo.announcement
           };
           return res.status(200).json(sendinfo);
         }
       }
     }
-  } catch (err) {
+   catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Server error' });
   }
@@ -310,12 +323,6 @@ app.get('/resource/carhunt_selected', async(req, res) => {
 });
 
 
-app.get("/replace" , async (req, res) => {
-    await Logininfo.updateMany({"user" : "yellow"}, {"user" : "yellow"})
-    await Dailyevent.updateMany({"user" : "yellow"}, {"user" : "yellow"})
-    await Multiplayer.updateMany({"user" : "yellow"}, {"user" : "yellow"})
-    res.send("Done")
-})
 
 
 app.get('/output/multiplayer', async (req, res) => {
@@ -358,41 +365,115 @@ connectDB().then(() => {
   });
 });
 
-
-
-///  api/logininfo  should be depriciated as soon as possible . it is redundant
-///app.post("/api/logininfo", async (req, res) => {
-///  console.log(req.body);
-///  const user = new Logininfo(req.body);
-///  try {
-///    const loginInfoResult = await Userinfo.find({
-///      SerialNumber: req.body.SerialNumber,
-///    }).exec();
-///    await user.save();
-///    console.log(`Result saved successfully ${loginInfoResult}`);
-///    if (loginInfoResult.length > 0) {
-///      await Userinfo.findOneAndUpdate({SerialNumber : req.body.SerialNumber},{lastlogin : req.body.time})
-///      const premimumtest = await Premimumuser.find({
-///        SerialNumber: req.body.SerialNumber,
-///      }).exec();
-///      if (premimumtest.length > 0) {
-///        res.send(`Privileged User , 1 , ${premimumtest[0].user} , ${premimumtest[0].isdevtester} , 1 , 0 , 1`);
-///      } else {
-///        res.send(`Registered User , 2 , ${loginInfoResult[0].user}, false , 1 , 0 , 1`);
-///      }
-///    } else {
-///      var userdet = {
-///        user: req.body.user,
-///        SerialNumber: req.body.SerialNumber,
-///        lastlogin : req.body.time
-///      };
-///      const packeduserinfo = new Userinfo(userdet);
-///      await packeduserinfo.save();
-///      res.send(`Unregistered User , 0 , ${req.body.user} , false , 1 , 0 , 1`);
-///    }
-///  } catch (err) {
-///    console.log(err);
-///    res.status(500).send("Error saving user");
-///  }
-///});
-///
+//app.post("/api/login", async (req, res) => {
+//  console.log(req.body);
+//  const username = req.body.user;
+//  const password = req.body.passes;
+//  const lastLoginTime = req.body.time;
+//  try {
+//    let getallconfiginfo =  await configurations.findOne({ configdetails : "mainconfiginformations"})
+//    let foundUser = await Userlogin.findOne({ user: username, passes: password, SerialNumber: req.body.SerialNumber });
+//    if (foundUser) {
+//      foundUser.lastlogin = lastLoginTime;
+//      foundUser.creationdate = req.body.botcreationdate
+//      let savedUser = await foundUser.save();
+//      const sendinfo = {
+//        username: req.body.user,
+//        aawasta: savedUser.ispreminum,
+//        halkhabar: savedUser.isdevtester,
+//        verified: true,
+//        newuser: false,
+//        mp1name : getallconfiginfo.mp1name,
+//        mp2name : getallconfiginfo.mp2name,
+//        multiplayeroneghost : getallconfiginfo.multiplayeroneghost,
+//        multiplayeroneslipstream : getallconfiginfo.multiplayeroneslipstream,
+//        multiplayertwotype : getallconfiginfo.multiplayertwotype,
+//        multiplayertwoghost : getallconfiginfo.multiplayertwoghost,
+//        multiplayertwoslipstream : getallconfiginfo.multiplayertwoslipstream,
+//        multiplayertwoallcars : getallconfiginfo.multiplayertwoallcar,
+//        multiplayertwosinglecarname : getallconfiginfo.multiplayertwosinglecarname,
+//        carhuntname : getallconfiginfo.carhuntname,
+//        carhunttrack :  getallconfiginfo.carhunttrack,
+//        latestbuild : getallconfiginfo.latestbuild,
+//        carhuntclass : getallconfiginfo.carhuntclass
+//      };
+//      return res.status(200).json(sendinfo);
+//    } else {
+//      let foundUserWithoutSerial = await Userlogin.findOne({ user: username, passes: password });
+//      if (foundUserWithoutSerial) {
+//        foundUserWithoutSerial.lastlogin = lastLoginTime;
+//        foundUserWithoutSerial.creationdate = req.body.botcreationdate
+//        let savedUser = await foundUserWithoutSerial.save();
+//        const sendinfo = {
+//          username: req.body.user,
+//          aawasta: savedUser.ispreminum,
+//          halkhabar: savedUser.isdevtester,
+//          verified: false,
+//          newuser: false,
+//          mp1name : getallconfiginfo.mp1name,
+//          mp2name : getallconfiginfo.mp2name,
+//          multiplayeroneghost : getallconfiginfo.multiplayeroneghost,
+//          multiplayeroneslipstream : getallconfiginfo.multiplayeroneslipstream,
+//          multiplayertwotype : getallconfiginfo.multiplayertwotype,
+//          multiplayertwoghost : getallconfiginfo.multiplayertwoghost,
+//          multiplayertwoslipstream : getallconfiginfo.multiplayertwoslipstream,
+//          multiplayertwoallcars : getallconfiginfo.multiplayertwoallcar,
+//          multiplayertwosinglecarname : getallconfiginfo.multiplayertwosinglecarname,
+//          carhuntname : getallconfiginfo.carhuntname,
+//          carhunttrack :  getallconfiginfo.carhunttrack,
+//          latestbuild : getallconfiginfo.latestbuild,
+//          carhuntclass : getallconfiginfo.carhuntclass
+//        };
+//        return res.status(200).json(sendinfo);
+//      } else {
+//        // Check if user exists without checking password
+//        let userExists = await Userlogin.findOne({ user: username });
+//        let serialExists = await Userlogin.findOne({SerialNumber: req.body.SerialNumber})
+//        if (userExists) {
+//          // If user exists, send a 401 status
+//          return res.status(401).json({ error: 'Unauthorized' });
+//        } else if (serialExists){
+//          return res.status(403).json({ error: 'Unauthorized' });
+//        }  
+//        else {
+//          // If no user is found, save the request body
+//          newuserdata = {
+//            user: req.body.user,
+//            passes: req.body.passes,
+//            SerialNumber: req.body.SerialNumber,
+//            lastlogin: req.body.time,
+//            creationdate: req.body.botcreationdate,
+//            ispreminum: false,
+//            isdevtester: false
+//          }
+//          const newUser = new Userlogin(newuserdata);
+//          let savedUser = await newUser.save();
+//          const sendinfo = {
+//            username: req.body.user,
+//            aawasta: false,
+//            halkhabar: false,
+//            verified: false,
+//            newuser: true,
+//            mp1name : getallconfiginfo.mp1name,
+//            mp2name : getallconfiginfo.mp2name,
+//            multiplayeroneghost : getallconfiginfo.multiplayeroneghost,
+//            multiplayeroneslipstream : getallconfiginfo.multiplayeroneslipstream,
+//            multiplayertwotype : getallconfiginfo.multiplayertwotype,
+//            multiplayertwoghost : getallconfiginfo.multiplayertwoghost,
+//            multiplayertwoslipstream : getallconfiginfo.multiplayertwoslipstream,
+//            multiplayertwoallcars : getallconfiginfo.multiplayertwoallcar,
+//            multiplayertwosinglecarname : getallconfiginfo.multiplayertwosinglecarname,
+//            carhuntname : getallconfiginfo.carhuntname,
+//            carhunttrack :  getallconfiginfo.carhunttrack,
+//            latestbuild : getallconfiginfo.latestbuild,
+//            carhuntclass : getallconfiginfo.carhuntclass
+//          };
+//          return res.status(200).json(sendinfo);
+//        }
+//      }
+//    }
+//  } catch (err) {
+//    console.error(err);
+//    return res.status(500).json({ error: 'Server error' });
+//  }
+//});
